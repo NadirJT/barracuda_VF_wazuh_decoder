@@ -1,0 +1,79 @@
+<var name="FREQ">10</var>
+<group name="barracuda,firewall,">
+<rule id="100100" level="0">
+  <decoded_as>barracuda-network</decoded_as>
+  <description>Barracuda firewall messages grouped</description>
+</rule>
+
+<rule id="100101" level="2">
+  <if_sid>100100</if_sid>
+  <regex type="pcre2">^\s+Warning</regex>
+  <description>Barracuda firewall warning</description>
+</rule>
+
+<rule id="100102" level="4">
+  <if_sid>100100</if_sid>
+  <regex type="pcre2">^\s+Error</regex>
+  <description>Barracuda firewall error</description>
+</rule>
+
+<rule id="100103" level="3">
+  <if_sid>100101</if_sid>
+  <description>Unallowed Port Protocol Detected from $(srcip) to $(dstip) </description>
+  <regex type="pcre2">Unallowed Port Protocol Detected</regex>
+  </rule>
+
+<rule id="100104" level="6" frequency="$FREQ" >
+  <if_matched_sid>100103</if_matched_sid>
+  <description>Multiple Unallowed Port Protocol Detected</description>
+</rule>
+
+<rule id="100105" level="4">
+  <if_sid>100102</if_sid>
+  <description>Tunnel $(tunnel) failed on phase 1</description>
+  <regex type="pcre2">Session Tunnel .* fails</regex>
+</rule>
+
+<rule id="100106" level="4">
+  <if_sid>100102</if_sid>
+  <description>Error Connection on phase 2</description>
+  <regex type="pcre2">phase=2</regex>
+</rule>
+
+<rule id="100107" level="2">
+  <if_sid>100101</if_sid>
+  <description>Peer Event</description>
+  <regex type="pcre2">Peer\sEvent:</regex>
+</rule>
+
+<rule id="100108" level="5">
+  <if_sid>100101</if_sid>
+  <description>Request blocked by IPS</description>
+  <regex type="pcre2">.*Block.*IPS.*</regex>
+</rule>
+
+<rule id="100109" level="5">
+  <if_sid>100100</if_sid>
+  <regex type="pcre2">^\s+Security</regex>
+  <description>Barracuda firewall security</description>
+</rule>
+
+<rule id="100110" level="5">
+  <if_sid>100109</if_sid>
+  <regex type="pcre2">.*LOGIN\sATTEMPT.*Denied.*</regex>
+  <description>Failed login attempt from $(srcip)</description>
+</rule>
+
+<rule id="100111" level="5">
+  <if_sid>100110</if_sid>
+  <user type="pcre2">^.+$</user>
+  <description>Failed login attempt from $(srcuser) to $(dstuser)</description>
+</rule>
+
+<rule id="100112" level="5">
+  <if_sid>100109</if_sid>
+  <regex type="pcre2">handshake\stimed\sout</regex>
+  <description>Handshake timed out from $(srcip)</description>
+</rule>
+
+</group>

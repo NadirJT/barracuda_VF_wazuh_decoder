@@ -1,0 +1,100 @@
+<!-- Decoder Created by-NadirJabiyev-n.jabiyev@xelon.ch-Barracuda VF and F Series supported-->
+
+<!-- Parent decoder, catchs all logs from BarracudaVFFirewalls -->
+
+<decoder name="barracuda-network">
+  <program_name type="pcre2">ES-FW01|LP-FW01</program_name>
+</decoder>
+
+
+<!-- Catch all ACL Events -->
+
+<decoder name="barracuda-network-child">
+  <parent>barracuda-network</parent>
+  <regex type="pcre2">(\S+) (\S+) (\S+):\s+\s*([^|]+)\s*\|\s*([^|]*)\s*\|\s*([^|]*)\s*\|\s*([^|]*)\s*\|(\w+)\|\s*([^|]*)\s*\|\s*([^|]*)\s*\|\s*([^|]+)\s*\|\s*([^|]*)\s*\|\s*([^|]*)\s*\|\s*([^|]*)\s*\|(\w+)\|(.+)</regex>
+  <order>severity, service, action, policy, protocol, interface, ip_dst, port_dst, src_mac, ip_src, port_src, app, flags1, acl, reason, flags2</order>
+</decoder>
+
+
+
+<!-- Catch warnings/errors firewall:
+# Unallowed Port Protocol Detected
+Apr  4 18:29:28 BarracudaVF BarracudaVF/box_Firewall_threat:  Warning  BarracudaVF firewall: [Request] Allow:   PPP TCP 172.29.51.97 -> 23.222.132.170:80 |[Unallowed Port Protocol Detected (SOAP)]|da.mark.truax|0|
+Apr  4 18:21:12 BarracudaVF BarracudaVF/box_Firewall_threat:  Warning  BarracudaVF firewall: [Request] Allow:   PPP TCP 172.29.50.128 -> 72.21.91.29:80 ocsp.digicert.com|[Unallowed Port Protocol Detected (OCSP)]|estefania.rascon|0|
+# Request Blocked by IPS
+Mar 31 13:10:49 BarracudaVF BarracudaVF/box_Firewall_threat:  Warning  BarracudaVF firewall: [Request] Block:   IPS TCP 172.29.51.64 -> 199.255.138.87:25 |[ID: 1054489 SMTP Multiple Products STARTTLS Plaintext Command Injection (CVE-2011-0411)]||3|Misc
+Mar 31 13:11:15 BarracudaVF BarracudaVF/box_Firewall_threat:  Warning  BarracudaVF firewall: [Request] Block:   IPS TCP 172.29.50.100 -> 52.223.245.64:443 video-edge-c2a538.den01.hls.live-video.net|[ID: 1056281 EXPLOIT Photodex ProShow Producer 5.0.3256 load File Handling Buffer Overflow]|t$# Others
+Apr  3 21:41:30 BarracudaVF BarracudaVF/box_Firewall_threat:  Warning  BarracudaVF firewall: [Request] Allow:   IPS ALLIP(0) 64.39.99.186 -> 0.0.0.0:0 |[ID: 5000002 TCPIP Port or IP Address Scan]||2|Probing
+-->
+
+<decoder name="barracuda-network-child">
+  <parent>barracuda-network</parent>
+  <regex type="pcre2">\s+(Warning|Error)\s+(\S+)\s(firewall):\s\[(\w+)\]\s(\w+):\s+(\S+)\s(\S+)\s(\d+\.\d+\.\d+\.\d+)\D+(\d+\.\d+\.\d+\.\d+):?(\d+)\s(\S+)?\|(.*)</regex>
+  <order>severity, service, operation, action, protocol1, protocol2, srcip, dstip, dstport, dsturl, message</order>
+</decoder>
+
+
+<!-- Catch warnings/errors peer event
+# Peer Event
+Mar 31 12:44:46 BarracudaVF BarracudaVF/box_Settings_time:  Warning  BarracudaVF Peer Event: LOCAL(0): Status (8043): conf, sel_reject, 4 events, unreachable. Event (83): unreachable
+-->
+<decoder name="barracuda-network-child">
+  <parent>barracuda-network</parent>
+  <regex type="pcre2">\s+(Warning|Error)\s+(\S+)\s+([^:]+):(.+Status\s\((\d+).*Event\s\((\d+).*)</regex>
+  <order>severity, service, message, status, eventnumber</order>
+</decoder>
+
+<!-- Catch Errors Phase 1 and 2
+# Errors
+# Error phase 1
+Apr  4 18:37:00 BarracudaVF BarracudaVF/srv_S1_VPN:  Error    BarracudaVF Session Tunnel IPSEC-Default fails (phase 1: no compatible proposal found) peer=216.218.206.118
+# Error phase 2
+Apr  4 09:20:40 BarracudaVF BarracudaVF/srv_S1_VPN_ike:  Error    BarracudaVF Connection (null) phase=2 choose transform: ATTENTION, peer IPSEC-MBMS requested network from different peer: IPSEC-IHSI-10.1.1.34-172.29.50.0
+-->
+<decoder name="barracuda-network-child">
+  <parent>barracuda-network</parent>
+  <regex type="pcre2">^\s+(Error)\s+(.*Tunnel ([^\s]+).*phase\s(\d+).*)peer=(\D*\d+\.\d+\.\d+\.\d+)</regex>
+  <order>severity, message, tunnel, phase, peer</order>
+</decoder>
+
+<decoder name="barracuda-network-child">
+  <parent>barracuda-network</parent>
+  <regex type="pcre2">^\s+(Error)[^:]\s+(.*phase=(\d).*peer\s(\S+).*peer:\s(\S+))</regex>
+  <order>severity, message, phase, peer, dstpeer</order>
+</decoder>
+
+<!-- Security -->
+<!-- Login attempt
+# Login attempt
+Apr 15 11:08:17 BarracudaVF BarracudaVF/box_Auth_access:  Security BarracudaVF LOGIN ATTEMPT: Admin[1111]: Login evil from 111.11.11.11 : Denied: Invalid Password
+Apr 15 11:08:17 BarracudaVF BarracudaVF/box_Auth_access:  Security BarracudaVF LOGIN ATTEMPT: Login from 11111.11.11: Denied: Firewall Rule <no-match>
+-->
+
+
+<decoder name="barracuda-network-child">
+  <parent>barracuda-network</parent>
+  <regex type="pcre2">\s+(Security)([^:]+:\s+(\S+)?.*Login\s(\w+)?\s?from\s(\d+\.\d+\.\d+\.\d+).*)</regex>
+  <order>severity, message, dstuser, srcuser, srcip</order>
+</decoder>
+
+
+<!-- Handsake timed out
+# handsake timed out
+Apr  3 21:46:19 BarracudaVF BarracudaVF/srv_S1_VPN:  Security BarracudaVF TCP 64.39.99.186:44191: handshake timed out (20 secs). closing connection
+-->
+
+<decoder name="barracuda-network-child">
+  <parent>barracuda-network</parent>
+  <regex type="pcre2">\s+(Security)\s+(\S+)\s(\S+)\s(\d+\.\d+\.\d+\.\d+):(\d+):(.*)</regex>
+  <order>seiverity, protocol, srcip, srcport</order>
+</decoder>
+
+
+
+<!-- catch everything
+-->
+<decoder name="barracuda-network-child">
+  <parent>barracuda-network</parent>
+  <regex type="pcre2">\s+(Warning|Error|Security)\s+(.+)</regex>
+          <order>severity, message</order>
+        </decoder>
